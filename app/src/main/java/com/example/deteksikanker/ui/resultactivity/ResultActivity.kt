@@ -91,11 +91,7 @@ class ResultActivity : AppCompatActivity() {
     private fun analyzeImage(bitmap: Bitmap) {
         try {
             val model = CancerClassification.newInstance(this)
-
-            // Membuat TensorImage dari bitmap
             val image = TensorImage.fromBitmap(bitmap)
-
-            // Memproses gambar dan mengambil hasil prediksi
             val outputs = model.process(image)
             val probability = outputs.probabilityAsCategoryList
 
@@ -104,8 +100,6 @@ class ResultActivity : AppCompatActivity() {
                 binding.confidenceScore.text = ""
                 return
             }
-
-            // Menampilkan kategori dengan skor tertinggi
             val topCategory = probability.maxByOrNull { it.score }
 
             topCategory?.let {
@@ -139,6 +133,7 @@ class ResultActivity : AppCompatActivity() {
         )
         historyViewModel.insertRecord(record)
     }
+
     @SuppressLint("SetTextI18n")
     private fun saveImageToInternalStorage(uri: Uri): String {
         try {
@@ -177,5 +172,4 @@ class ResultActivity : AppCompatActivity() {
             else -> super.onOptionsItemSelected(item)
         }
     }
-
 }

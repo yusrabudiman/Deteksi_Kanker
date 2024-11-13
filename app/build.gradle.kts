@@ -24,6 +24,7 @@ android {
     buildTypes {
         defaultConfig {
             buildConfigField("String", "BASE_URL", "\"https://newsapi.org/v2/\"")
+            buildConfigField("String", "API_KEY", "\"9f5290071986464788b5c4ce243d9160\"")
         }
         release {
             isMinifyEnabled = false

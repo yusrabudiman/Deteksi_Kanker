@@ -1,0 +1,13 @@
+<resources>
+    <string name="app_name">Deteksi Kanker</string>
+    <string name="title_home">Detection</string>
+    <string name="title_dashboard">Explore</string>
+    <string name="title_notifications">History</string>
+    <string name="image_view_content">image_view_content</string>
+    <string name="gallery">gallery</string>
+    <string name="analyze">Analyze</string>
+    <string name="image_content_view">Image Content View</string>
+    <string name="result">Result:</string>
+    <string name="confidence">Confidence:</string>
+    <string name="lakukan_deteksi_kanker_pertama_anda">Lakukan deteksi kanker pertama Anda</string>
+</resources>

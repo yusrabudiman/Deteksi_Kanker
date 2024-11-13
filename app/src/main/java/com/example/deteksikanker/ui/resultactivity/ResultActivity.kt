@@ -33,6 +33,7 @@ class ResultActivity : AppCompatActivity() {
         setContentView(binding.root)
         supportActionBar?.title = "Result Cancer"
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
+
         val title = intent.getStringExtra("title")
         val confidenceScore = intent.getFloatExtra("confidenceScore", -1f)
         val imagePath = intent.getStringExtra("image")

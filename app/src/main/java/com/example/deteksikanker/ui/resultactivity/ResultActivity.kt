@@ -4,8 +4,6 @@ import android.annotation.SuppressLint
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Matrix
-//noinspection ExifInterface
-import android.media.ExifInterface
 import android.net.Uri
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
@@ -39,41 +37,32 @@ class ResultActivity : AppCompatActivity() {
         val imagePath = intent.getStringExtra("image")
 
         if (title != null && confidenceScore != -1f && imagePath != null) {
-            binding.resultText.text = "Result: $title"
-            binding.confidenceScore.text = "Confidence: ${String.format("%.2f", confidenceScore * 100)}%"
-
+            binding.resultText.text = "$title ${String.format("%.2f", confidenceScore * 100)}%"
             val bitmap = BitmapFactory.decodeFile(imagePath)
             binding.resultImage.setImageBitmap(bitmap)
         } else {
             val imageUriString = intent.getStringExtra("IMAGE_URI")
-            imageUriString?.let {
-                val imageUri = Uri.parse(it)
-                adjustImageRotationAndAnalyze(imageUri)
-            } ?: run {
+            if (imageUriString.isNullOrEmpty()) {
                 binding.resultText.text = "No image available"
+            } else {
+                val imageUri = Uri.parse(imageUriString)
+                adjustImageRotationAndAnalyze(imageUri)
             }
         }
     }
 
-    @SuppressLint("SetTextI18n")
+
+    @SuppressLint("SetTextI18n", "Recycle")
     private fun adjustImageRotationAndAnalyze(uri: Uri) {
+        var inputStream: InputStream? = null
         try {
-            val inputStream: InputStream? = contentResolver.openInputStream(uri)
+            inputStream = contentResolver.openInputStream(uri)
             if (inputStream == null) {
                 binding.resultText.text = "Error: Image could not be opened"
                 return
             }
-
-            val exif = ExifInterface(inputStream)
-            val orientation = exif.getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)
             val matrix = Matrix()
-            when (orientation) {
-                ExifInterface.ORIENTATION_ROTATE_90 -> matrix.postRotate(90f)
-                ExifInterface.ORIENTATION_ROTATE_180 -> matrix.postRotate(180f)
-                ExifInterface.ORIENTATION_ROTATE_270 -> matrix.postRotate(270f)
-            }
-
-            val bitmap = BitmapFactory.decodeStream(contentResolver.openInputStream(uri))
+            val bitmap = BitmapFactory.decodeStream(inputStream)
             if (bitmap == null) {
                 binding.resultText.text = "Error: Failed to decode the image"
                 return
@@ -81,10 +70,11 @@ class ResultActivity : AppCompatActivity() {
             val rotatedBitmap = Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
             binding.resultImage.setImageBitmap(rotatedBitmap)
             analyzeImage(rotatedBitmap)
-
         } catch (e: Exception) {
             e.printStackTrace()
             binding.resultText.text = "Error adjusting rotation: ${e.message}"
+        } finally {
+            inputStream?.close()
         }
     }
 
@@ -98,28 +88,22 @@ class ResultActivity : AppCompatActivity() {
 
             if (probability.isEmpty()) {
                 binding.resultText.text = "Error: No prediction available"
-                binding.confidenceScore.text = ""
                 return
             }
             val topCategory = probability.maxByOrNull { it.score }
 
             topCategory?.let {
-                binding.resultText.text = "Result: ${it.label}"
-                binding.confidenceScore.text = "Confidence: ${String.format("%.2f", it.score * 100)}%"
-
-                // Menyimpan gambar dan hasil deteksi
+                binding.resultText.text = "${it.label} ${String.format("%.2f", it.score * 100)}%"
                 val imagePath = saveImageToInternalStorage(Uri.parse(intent.getStringExtra("IMAGE_URI") ?: ""))
                 saveDetectionResult(it.label, it.score, imagePath)
             } ?: run {
                 binding.resultText.text = "Error: No prediction available"
-                binding.confidenceScore.text = ""
             }
 
             model.close()
         } catch (e: Exception) {
             e.printStackTrace()
             binding.resultText.text = "Error analyzing image: ${e.message}"
-            binding.confidenceScore.text = ""
         }
     }
 

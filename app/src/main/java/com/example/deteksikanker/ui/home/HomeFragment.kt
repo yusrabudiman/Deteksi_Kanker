@@ -7,8 +7,6 @@ import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Matrix
-//noinspection ExifInterface
-import android.media.ExifInterface
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -20,6 +18,7 @@ import androidx.activity.result.ActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.viewModels
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.engine.DiskCacheStrategy
 import com.example.deteksikanker.R
@@ -31,17 +30,16 @@ class HomeFragment : Fragment() {
     private var _binding: FragmentHomeBinding? = null
     private val binding get() = _binding!!
     private var currentImageUri: Uri? = null
+    private val viewModel: HomeViewModel by viewModels()
 
     private val galleryLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result: ActivityResult ->
         if (result.resultCode == Activity.RESULT_OK) {
             result.data?.data?.let { uri ->
-                currentImageUri = uri
+                viewModel.setImageUri(uri)
                 startCrop(uri)
             }
-        } else {
-            showToast("Failed to select image.")
         }
     }
 
@@ -63,8 +61,18 @@ class HomeFragment : Fragment() {
         return binding.root
     }
 
+
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+
+        viewModel.currentImageUri.observe(viewLifecycleOwner) { uri ->
+            if (uri != null) {
+                showImage(uri)
+            } else {
+                binding.previewImageView.setImageResource(R.drawable.ic_place_holder)
+            }
+        }
+
         binding.galleryButton.setOnClickListener {
             checkGalleryPermissionAndOpen()
         }
@@ -107,35 +115,36 @@ class HomeFragment : Fragment() {
 
     @Deprecated("Deprecated in Java")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        if (resultCode == Activity.RESULT_OK && requestCode == UCrop.REQUEST_CROP) {
-            data?.let {
-                val resultUri = UCrop.getOutput(data)
-                resultUri?.let { uri ->
-                    val rotatedBitmap = rotateImage(uri)
-                    currentImageUri = saveBitmapToUri(rotatedBitmap)
-                    rotatedBitmap?.let { showImage(uri) }
-                } ?: showToast("Failed to get cropped image.")
-            } ?: showToast("Image data is null.")
-        } else if (resultCode == UCrop.RESULT_ERROR) {
-            val cropError = UCrop.getError(data!!)
-            cropError?.printStackTrace()
-            showToast("Crop error: ${cropError?.message}")
+        if (requestCode == UCrop.REQUEST_CROP) {
+            when (resultCode) {
+                Activity.RESULT_OK -> {
+                    data?.let {
+                        val resultUri = UCrop.getOutput(data)
+                        resultUri?.let { uri ->
+                            val rotatedBitmap = rotateImage(uri)
+                            viewModel.setImageUri(saveBitmapToUri(rotatedBitmap))
+                            rotatedBitmap?.let { showImage(uri) }
+                        } ?: showToast("Failed to get cropped image.")
+                    } ?: showToast("Image data is null.")
+                }
+                UCrop.RESULT_ERROR -> {
+                    val cropError = data?.let { UCrop.getError(it) }
+                    cropError?.printStackTrace()
+                    showToast("Crop error: ${cropError?.message}")
+                    viewModel.restorePreviousImageUri()
+                }
+                else -> {
+                    viewModel.restorePreviousImageUri()
+                }
+            }
         }
     }
 
-    private fun rotateImage(uri: Uri, degrees: Float = 0f): Bitmap? {
+
+    private fun rotateImage(uri: Uri): Bitmap? {
         return try {
             val originalBitmap = BitmapFactory.decodeStream(requireContext().contentResolver.openInputStream(uri))
             val matrix = Matrix()
-            val exif = ExifInterface(requireContext().contentResolver.openInputStream(uri)!!)
-            val orientation = exif.getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)
-            when (orientation) {
-                ExifInterface.ORIENTATION_ROTATE_90 -> matrix.postRotate(90f)
-                ExifInterface.ORIENTATION_ROTATE_180 -> matrix.postRotate(180f)
-                ExifInterface.ORIENTATION_ROTATE_270 -> matrix.postRotate(270f)
-                else -> matrix.postRotate(degrees)
-            }
-
             Bitmap.createBitmap(originalBitmap, 0, 0, originalBitmap.width, originalBitmap.height, matrix, true)
         } catch (e: Exception) {
             e.printStackTrace()
@@ -171,15 +180,10 @@ class HomeFragment : Fragment() {
     }
 
     private fun analyzeImage() {
-        if (currentImageUri != null) {
-            moveToResult(currentImageUri!!)
-            Glide.with(this)
-                .load(R.drawable.ic_place_holder)
-                .into(binding.previewImageView)
-            currentImageUri = null
-        } else {
-            showToast("No Image Selected for Analysis")
-        }
+        viewModel.currentImageUri.value?.let { uri ->
+            moveToResult(uri)
+            viewModel.clearImageUri()
+        } ?: showToast("No Image Selected for Analysis")
     }
 
     private fun moveToResult(uri: Uri) {

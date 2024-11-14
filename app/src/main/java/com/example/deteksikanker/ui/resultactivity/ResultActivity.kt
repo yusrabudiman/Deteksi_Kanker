@@ -4,6 +4,8 @@ import android.annotation.SuppressLint
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Matrix
+//noinspection ExifInterface
+import android.media.ExifInterface
 import android.net.Uri
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
@@ -52,17 +54,25 @@ class ResultActivity : AppCompatActivity() {
     }
 
 
-    @SuppressLint("SetTextI18n", "Recycle")
+    @SuppressLint("SetTextI18n")
     private fun adjustImageRotationAndAnalyze(uri: Uri) {
-        var inputStream: InputStream? = null
         try {
-            inputStream = contentResolver.openInputStream(uri)
+            val inputStream: InputStream? = contentResolver.openInputStream(uri)
             if (inputStream == null) {
                 binding.resultText.text = "Error: Image could not be opened"
                 return
             }
+
+            val exif = ExifInterface(inputStream)
+            val orientation = exif.getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)
             val matrix = Matrix()
-            val bitmap = BitmapFactory.decodeStream(inputStream)
+            when (orientation) {
+                ExifInterface.ORIENTATION_ROTATE_90 -> matrix.postRotate(90f)
+                ExifInterface.ORIENTATION_ROTATE_180 -> matrix.postRotate(180f)
+                ExifInterface.ORIENTATION_ROTATE_270 -> matrix.postRotate(270f)
+            }
+
+            val bitmap = BitmapFactory.decodeStream(contentResolver.openInputStream(uri))
             if (bitmap == null) {
                 binding.resultText.text = "Error: Failed to decode the image"
                 return
@@ -70,11 +80,10 @@ class ResultActivity : AppCompatActivity() {
             val rotatedBitmap = Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
             binding.resultImage.setImageBitmap(rotatedBitmap)
             analyzeImage(rotatedBitmap)
+
         } catch (e: Exception) {
             e.printStackTrace()
             binding.resultText.text = "Error adjusting rotation: ${e.message}"
-        } finally {
-            inputStream?.close()
         }
     }
 

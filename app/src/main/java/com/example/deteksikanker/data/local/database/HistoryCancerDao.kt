@@ -9,7 +9,6 @@ import androidx.room.Query
 interface HistoryCancerDao {
     @Insert
     suspend fun insertRecord(record: HistoryCancerRecord)
-
     @Query("SELECT * FROM history_cancer_record ORDER BY id DESC")
     fun getAllRecords(): LiveData<List<HistoryCancerRecord>>
 }

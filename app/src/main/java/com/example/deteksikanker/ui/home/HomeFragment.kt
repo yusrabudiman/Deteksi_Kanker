@@ -7,6 +7,8 @@ import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Matrix
+//noinspection ExifInterface
+import android.media.ExifInterface
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -141,10 +143,19 @@ class HomeFragment : Fragment() {
     }
 
 
-    private fun rotateImage(uri: Uri): Bitmap? {
+    private fun rotateImage(uri: Uri, degrees: Float = 0f): Bitmap? {
         return try {
             val originalBitmap = BitmapFactory.decodeStream(requireContext().contentResolver.openInputStream(uri))
             val matrix = Matrix()
+            val exif = ExifInterface(requireContext().contentResolver.openInputStream(uri)!!)
+            val orientation = exif.getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)
+            when (orientation) {
+                ExifInterface.ORIENTATION_ROTATE_90 -> matrix.postRotate(90f)
+                ExifInterface.ORIENTATION_ROTATE_180 -> matrix.postRotate(180f)
+                ExifInterface.ORIENTATION_ROTATE_270 -> matrix.postRotate(270f)
+                else -> matrix.postRotate(degrees)
+            }
+
             Bitmap.createBitmap(originalBitmap, 0, 0, originalBitmap.width, originalBitmap.height, matrix, true)
         } catch (e: Exception) {
             e.printStackTrace()
